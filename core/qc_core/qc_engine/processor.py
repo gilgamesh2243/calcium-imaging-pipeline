@@ -117,12 +117,6 @@ class QCProcessor:
                 state.last_status = qc
                 return qc
 
-        # Saturation check on last frame (cheapest)
-        if frames:
-            sat = state.saturation.evaluate(frames[-1], first_frame_index + len(frames) - 1)
-            if sat and state.last_status:
-                pass  # already included in next periodic eval
-
         return None
 
     async def process_marker(self, event: dict[str, Any]) -> None:
