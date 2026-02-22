@@ -1,5 +1,7 @@
 # System Architecture
 
+> For structured C4 model diagrams (System Context, Container, Component, and Code level) see **[C4 Diagrams](c4-diagrams.md)**.
+
 ## Overview
 
 The calcium imaging QC pipeline is a multi-lab deployable system providing real-time failure detection during live microscopy sessions.
