@@ -5,10 +5,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { FindingsPanel } from "@/components/FindingsPanel";
 import type { QCState } from "@/lib/types";
 
-const WS_URL =
-  typeof window !== "undefined"
-    ? (process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8000/ws/qc")
-    : "ws://localhost:8000/ws/qc";
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8000/ws/qc";
 
 export default function LivePage() {
   const { status, connected } = useQCWebSocket(WS_URL);
