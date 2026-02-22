@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qc-replay-testkit"
+version = "0.1.0"
+description = "Replay server, fault injector, golden tests, and perf tests for qc-core"
+requires-python = ">=3.11"
+dependencies = [
+    "grpcio>=1.63.0",
+    "grpcio-tools>=1.63.0",
+    "protobuf>=4.25.0",
+    "numpy>=1.26.0",
+    "lz4>=4.3.0",
+    "pyyaml>=6.0",
+    "tqdm>=4.66.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["replay_server*", "fault_injector*", "golden_tests*", "perf_tests*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

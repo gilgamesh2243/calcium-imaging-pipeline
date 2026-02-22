@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+venv/
+
+# C#/.NET
+bin/
+obj/
+
+# Node/Next.js
+node_modules/
+dist/
+build/
+.next/
+out/
+
+# General
+.env
+*.db
+*.log
+spool/

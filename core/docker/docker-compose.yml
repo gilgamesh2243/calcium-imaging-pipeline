@@ -1,0 +1,37 @@
+version: "3.9"
+
+services:
+  qc-core:
+    build:
+      context: ../..
+      dockerfile: core/docker/Dockerfile
+    ports:
+      - "50051:50051"   # gRPC ingest
+      - "8000:8000"     # FastAPI + WebSocket
+    volumes:
+      - ./spool:/app/spool
+      - ./configs:/app/configs:ro
+    environment:
+      QC_CONFIG_ROOT: /app/configs
+      QC_GRPC_PORT: "50051"
+      QC_HTTP_PORT: "8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  qc-dashboard:
+    build:
+      context: ../../dashboard
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_WS_URL: "ws://qc-core:8000/ws/qc"
+      NEXT_PUBLIC_API_URL: "http://qc-core:8000/api/v1"
+    depends_on:
+      qc-core:
+        condition: service_healthy
+    restart: unless-stopped

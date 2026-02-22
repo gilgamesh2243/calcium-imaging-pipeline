@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/adapters/">
+    <Project Path="adapters/HotFolderAdapter/HotFolderAdapter.csproj" />
+    <Project Path="adapters/NisElementsAdapter/NisElementsAdapter.csproj" />
+    <Project Path="adapters/SimulatedAdapter/SimulatedAdapter.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/QcAdapterSdk/QcAdapterSdk.csproj" />
+    <Project Path="src/QcEdgeAgent/QcEdgeAgent.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/QcEdgeAgent.Tests/QcEdgeAgent.Tests.csproj" />
+  </Folder>
+</Solution>
