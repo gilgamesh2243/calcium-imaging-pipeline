@@ -1,0 +1,38 @@
+# Global default configuration
+# Override with labs/{lab_id}.yaml → rigs/{lab_id}/{rig_id}.yaml
+
+streaming:
+  grpc_endpoint: "localhost:50051"
+  compression: "lz4"           # lz4 | none
+  batch_size: 8                # frames per batch
+  ring_buffer_seconds: 10      # edge ring buffer depth
+
+qc:
+  update_interval_frames: 30   # how often to emit QCStatus
+  saturation_threshold_pct: 0.5
+  baseline_drift_max_slope: 0.005
+  baseline_std_max: 0.05
+  max_drift_px: 10.0
+  max_decay_constant: 0.001
+  focus_drop_threshold: 0.3
+  expected_onset_min_s: 5.0
+  expected_onset_max_s: 60.0
+  expected_markers:
+    - DRUG_ON
+  marker_deadline_seconds: 300
+
+channels:
+  - channel_id: 0
+    name: GCaMP
+    wavelength: 488.0
+    bit_depth: 16
+
+session:
+  modality: "2p-calcium"
+  expected_baseline_seconds: 30.0
+
+security:
+  auth_mode: "token"           # token | mtls | none
+  token: ""                    # set via QC_SECURITY__TOKEN env var
+  tls_cert: ""
+  tls_key: ""

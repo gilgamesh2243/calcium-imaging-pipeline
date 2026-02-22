@@ -1,0 +1,12 @@
+# Rig-specific overrides for example-lab / rig-a
+streaming:
+  grpc_endpoint: "192.168.1.100:50051"
+  batch_size: 4
+
+qc:
+  saturation_threshold_pct: 1.0   # rig-a has slightly noisy sensor
+
+session:
+  fps: 15.0
+  width: 512
+  height: 512

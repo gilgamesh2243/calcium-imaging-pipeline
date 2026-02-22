@@ -1,0 +1,24 @@
+# Lab-specific overrides for example-lab
+streaming:
+  grpc_endpoint: "192.168.1.100:50051"
+
+qc:
+  expected_onset_min_s: 10.0
+  expected_onset_max_s: 90.0
+  expected_markers:
+    - DRUG_ON
+    - DRUG_OFF
+
+session:
+  modality: "widefield"
+  expected_baseline_seconds: 60.0
+
+channels:
+  - channel_id: 0
+    name: GCaMP6s
+    wavelength: 488.0
+    bit_depth: 16
+  - channel_id: 1
+    name: tdTomato
+    wavelength: 561.0
+    bit_depth: 16
