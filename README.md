@@ -1,146 +1,213 @@
-# Calcium Imaging QC Pipeline
+# Real-Time Experimental QC Platform
 
-A multi-lab deployable system that provides **real-time quality-control (QC) failure detection** during live two-photon / widefield calcium-imaging microscopy sessions.
+**Multi-Lab Streaming Failure Detection for Preclinical Imaging**
 
----
-
-## Table of Contents
-
-1. [Overview](#overview)
-2. [Quick Start](#quick-start)
-3. [Repository Layout](#repository-layout)
-4. [Documentation](#documentation)
-5. [Technology Stack](#technology-stack)
-6. [Contributing](#contributing)
-
----
+------------------------------------------------------------------------
 
 ## Overview
 
-The pipeline continuously monitors frames from an acquisition PC, streams them over gRPC to a GPU processing node, runs a suite of QC algorithms, and pushes live status to a Next.js dashboard.
+This project provides a **real-time quality control (QC) and failure
+detection pipeline** for microscopy / calcium imaging experiments.
 
-Key capabilities:
+It is designed to:
 
-| Capability | Detail |
-|---|---|
-| **Real-time QC** | Baseline drift, saturation, motion, photobleach, focus proxy, onset latency, missing marker detection |
-| **Non-blocking acquisition** | Lock-free ring buffer; frames are never blocked by the QC path |
-| **Multi-lab support** | YAML config hierarchy (global → lab → rig) with env-var overrides |
-| **Pluggable adapters** | Stable `IFrameSourceAdapter` SDK for any acquisition system |
-| **Resilient streaming** | Edge agent continues recording locally if the core is unreachable |
+-   Detect acquisition failures **during or immediately after
+    recording**
+-   Reduce experimental variance by catching issues early
+-   Improve reproducibility across operators and rigs
+-   Decrease reruns, wasted sessions, and unnecessary animal usage
+-   Provide NIH-grade auditability through deterministic QC and golden
+    tests
 
----
+The system supports **multi-lab deployment** using configuration
+hierarchies and adapter-based acquisition integrations.
 
-## Quick Start
+------------------------------------------------------------------------
 
-### Prerequisites
+## Why This Exists
 
-- Docker Engine 24+ with Compose plugin
-- (Optional) NVIDIA GPU on the core node for accelerated QC
+In many imaging workflows:
 
-### 1 – Start core services
+-   A session fails due to flow issues, motion, bleaching, saturation,
+    or mistimed stimulus.
+-   The problem is only discovered **after multiple recordings are
+    complete**.
+-   Variability between operators increases required sample sizes (the
+    "variance tax").
+-   Power analyses inflate N due to acquisition variability rather than
+    biology.
 
-```bash
+This platform addresses that by:
+
+1.  Streaming acquisition data in real time.
+2.  Running deterministic QC detectors.
+3.  Flagging issues before the next experiment begins.
+4.  Logging every decision for reproducibility.
+
+The goal is not automation for its own sake --- it is **variance
+suppression and early failure detection**.
+
+------------------------------------------------------------------------
+
+## What It Does (Current Capabilities)
+
+### Deterministic QC Detectors (v1)
+
+-   Baseline drift detection\
+-   Baseline variance instability\
+-   Saturation / clipping detection\
+-   Motion / drift detection (frame-to-frame correlation shift)\
+-   Photobleach slope estimation\
+-   Focus proxy (Laplacian / Tenengrad trend)\
+-   Onset latency detection relative to `DRUG_ON` markers\
+-   Missing expected markers
+
+All detectors are deterministic in v1.\
+Given identical input frames + configuration → identical QC result.
+
+------------------------------------------------------------------------
+
+## Architecture
+
+``` mermaid
+flowchart LR
+    A[Acquisition PC
+Edge Agent + Adapter] -->|gRPC FrameBatch + MarkerEvent| B[QC Core Ingest]
+    B --> C[QC Engine]
+    C --> D[WebSocket Status Publisher]
+    D --> E[Dashboard UI]
+    B --> F[Session Spool + Audit Storage]
+    G[Replay Testkit] --> B
+```
+
+------------------------------------------------------------------------
+
+## Mode A vs Mode B
+
+### Mode A --- True Frame Streaming (Preferred)
+
+-   Direct frame tap from acquisition software (via adapter)
+-   Lowest latency
+-   Requires SDK or integration layer
+
+### Mode B --- ND2 Tail / Near-Real-Time
+
+-   Watches growing ND2 file
+-   Easier integration
+-   Slightly higher latency
+
+Current repo state: - Core, dashboard, replay, QC engine implemented -
+Adapter integration scaffolded - Nikon NIS-Elements adapter pending
+integration
+
+------------------------------------------------------------------------
+
+## Quickstart (Local Development)
+
+### 1. Start Core + Dashboard
+
+``` bash
 cd core/docker
-docker compose up -d
+docker compose up --build
 ```
 
-- **gRPC ingest**: `localhost:50051`
-- **REST / WebSocket API**: `localhost:8000`
-- **Dashboard**: `http://localhost:3000`
+Services:
 
-### 2 – Verify health
+-   gRPC ingest: `localhost:50051`
+-   HTTP API + WebSocket: `http://localhost:8000`
+-   Dashboard: `http://localhost:3000`
 
-```bash
+------------------------------------------------------------------------
+
+### 2. Confirm Health
+
+``` bash
 curl http://localhost:8000/api/v1/health
-# → {"status": "ok"}
 ```
 
-### 3 – Stream a test replay
+------------------------------------------------------------------------
 
-```bash
-cd replay-testkit
-pip install -e .
-python -m replay_server.server --endpoint localhost:50051 --fps 30 --frames 300
+### 3. Run Tests
+
+``` bash
+cd core
+pytest
 ```
 
-Open `http://localhost:3000/live` to watch the live dashboard.
+------------------------------------------------------------------------
 
-### 4 – Deploy the edge agent (Windows acquisition PC)
+### 4. Run Golden Tests
 
-```bash
-cd edge-agent
-dotnet publish -c Release -r win-x64 --self-contained
-# Copy output to acquisition PC, then set env vars:
-#   QC_CORE_ENDPOINT=http://<core-ip>:50051
-#   QC_LAB_ID=my-lab
-#   QC_RIG_ID=rig-a
-#   QC_ADAPTER=simulated
-QcEdgeAgent.exe
+``` bash
+python replay-testkit/golden_tests/runner.py
 ```
 
----
+------------------------------------------------------------------------
+
+## Multi-Lab Configuration Model
+
+Configuration hierarchy:
+
+    configs/
+      global.yaml
+      labs/{lab_id}.yaml
+      rigs/{lab_id}/{rig_id}.yaml
+
+Override order:
+
+    global → lab → rig
+
+------------------------------------------------------------------------
+
+## Validation & Reproducibility
+
+Each session stores:
+
+-   manifest.json
+-   markers.jsonl
+-   qc_status.jsonl
+-   metrics.parquet
+-   Evidence snippets
+-   Version metadata
+
+Golden tests enforce deterministic QC behavior and NIH-grade audit
+traceability.
+
+------------------------------------------------------------------------
 
 ## Repository Layout
 
-```
-calcium-imaging-pipeline/
-├── configs/                  # YAML config hierarchy (global → lab → rig)
-├── core/                     # Python QC core (FastAPI + gRPC server)
-│   ├── qc_core/
-│   │   ├── algorithms/       # QC algorithm modules
-│   │   ├── api/              # FastAPI REST routes
-│   │   ├── ingest_gateway/   # gRPC server + audit spooler
-│   │   ├── qc_engine/        # QCProcessor orchestrator
-│   │   ├── storage/          # SQLite session store
-│   │   └── websocket/        # WebSocket publisher
-│   └── docker/               # Docker Compose files
-├── dashboard/                # Next.js 14 dashboard (TypeScript, Tailwind)
-├── docs/                     # Documentation
-│   ├── architecture.md       # System architecture overview
-│   ├── c4-diagrams.md        # C4 model diagrams (system → code level)
-│   ├── adapter_dev_guide.md  # Guide for building custom adapters
-│   ├── configs.md            # Configuration reference
-│   ├── deployment.md         # Deployment guide
-│   └── troubleshooting.md    # Troubleshooting guide
-├── edge-agent/               # C# .NET 8 edge agent + adapter SDK
-│   ├── src/QcEdgeAgent/      # Main edge agent host
-│   └── src/QcAdapterSdk/     # Stable adapter interface & base classes
-├── proto/                    # Protobuf definitions (qcstream.proto)
-└── replay-testkit/           # Python replay server for integration testing
-```
+    /core
+    /dashboard
+    /replay-testkit
+    /configs
+    /proto
 
----
+------------------------------------------------------------------------
 
-## Documentation
+## Current Status
 
-| Document | Description |
-|---|---|
-| [Architecture Overview](docs/architecture.md) | High-level data-flow and safety guarantees |
-| [C4 Diagrams](docs/c4-diagrams.md) | C4 model – System Context, Container, Component, and Code diagrams |
-| [Deployment Guide](docs/deployment.md) | Docker Compose, edge agent setup, TLS/auth |
-| [Configuration Reference](docs/configs.md) | Full config key reference and env-var overrides |
-| [Adapter Developer Guide](docs/adapter_dev_guide.md) | SDK interface, rules, lab onboarding checklist |
-| [Troubleshooting](docs/troubleshooting.md) | Common issues and fixes |
+  Feature                             Status
+  ----------------------------------- -------------
+  gRPC ingest                         Implemented
+  Deterministic QC engine             Implemented
+  Dashboard live status               Implemented
+  Replay simulation                   Implemented
+  Golden tests                        Implemented
+  Multi-lab config hierarchy          Implemented
+  Edge agent (Windows)                In progress
+  Nikon adapter integration           Planned
+  ROI-based QC                        Planned
+  ML-based early failure prediction   Planned
 
----
+------------------------------------------------------------------------
 
-## Technology Stack
+## Intended Use
 
-| Component | Technology |
-|---|---|
-| Edge agent | C# .NET 8 |
-| Core ingest + QC | Python 3.11, FastAPI, asyncio |
-| Transport | gRPC (Protobuf), LZ4 compression |
-| Dashboard | Next.js 14, TypeScript, Tailwind CSS |
-| Storage | SQLite (aiosqlite), JSONL audit trail |
-| Container | Docker Compose |
+This platform is a research tool designed to:
 
----
+-   Improve experimental reliability
+-   Reduce acquisition-related variance
+-   Support reproducible preclinical research
 
-## Contributing
-
-1. Fork the repo and create a feature branch.
-2. For new acquisition adapters follow the [Adapter Developer Guide](docs/adapter_dev_guide.md).
-3. Add or update tests under `core/tests/`, `edge-agent/tests/`, or `replay-testkit/`.
-4. Open a pull request describing your change.
+It is not a medical device.
